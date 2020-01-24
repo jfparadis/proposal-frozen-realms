@@ -52,8 +52,7 @@ The _compartment record_ is like a _realm record_, except that its _intrinsics_ 
 
 We propose a `Compartment` class, whose instances is a reification of the concept of "compartment" introduced above, for making multiple _lightweight child realms_ inside a given realm.
 
-Though initially separate, compartments can be brought into intimate contact
-with each other via global object and modules.
+Though initially separate, compartments can be brought into intimate contact with each other via global object and modules.
 
 ```js
 class Compartment {
@@ -74,24 +73,21 @@ class Compartment {
 }
 ```
 
-The compartment constructor creates a new lightweight child realm with a new
-`global`, a new `eval` function, a new `Function` constructor,
-a new `Compartment` constructor, and a new `importX` function.
+The compartment constructor creates a new lightweight child realm with a new `global`, a new `eval` function, a new `Function` constructor, and a new `Compartment` constructor.
 
 - The compartment global object consists of all the primordial state defined by
 ECMA262, but contains no host provided objects, so `window`, `document`, `XMLHttpRequest`,
 `require`, `process` etc. are all absent. Thus, a compartment contains none of the objects needed for interacting with the outside world, like the user or the network.
 
-- The new `eval`, `Function`, and
-  `importX` will evaluate code in the global scope of the new compartment: the new compartment's `global` becomes their global object.
+- The new `eval`, `Function`, and `Compartment` will evaluate code in the global scope of the new compartment: the new compartment's `global` becomes their global object.
 
-- The new `eval`, `Function`, `Compartment`, and `importX` inherit from the shared %Function_prototype%.
+- The new `eval`, `Function`, and `Compartment` inherit from the shared %FunctionPrototype%.
 
-- The new `Function.prototype` is the shared %Function_prototype%.
+- The new `Function.prototype` is the shared %FunctionPrototype%.
 
 - The new `Compartment` constructor...?
 
-- The new `Compartment.prototype` is the shared %Compartment_prototype%.
+- The new `Compartment.prototype` is the shared %CompartmentPrototype%.
 
 The constructor then copies the values of the own enumerable properties from the `globals` parameter onto the new `global` and returns the new compartment instance. With these additional globals, users provide the
 *virtual host objects* that they wish to be available in the spawned compartment.
@@ -105,11 +101,11 @@ We propose on the shared `Compartment.prototype`, to be inherited by instances o
 - an `evaluate` method to evaluate code in the global scope of the new compartment. Its signature is identical to the `eval()` function
   but possibly with an additional optional options argument.
 - an asynchronous `import` method to dynamically load modules in the new compartment. Its signature is identical to the
-  `importX()` function.
+  dynamic import function.
 
 ### The `lockdown` method
 
-We propose a static method, `lockdown()` or `Realm.lockdown()`, for converting the current realm into a state with immutable primordials. We call such a realm an _immutable realm_. The `Realm` global object will be specified by the Realms proposal, and will expose an `intrinscs` static accessor to easily access all intrinsics.
+We propose a static method, `lockdown()` or `Realm.lockdown()`, for converting the current realm into a state with immutable primordials. We call such a realm an _immutable realm_. The `Realm` global object will be specified by the Realms proposal.
 
 The lockdown operation consists of:
 - taming some globals (see below).
@@ -175,18 +171,25 @@ To make a transitively immutable root realm, we, respectively
 
 Likewise, any new addition to the specifications need to follow the same policy, in order to avoid introducing mutable state in a compartment.
 
-A user can effectively add the missing functionality of `Date` and `Math` back in when necessary, or substiture safe implementations.
+A user can effectively add the missing functionality of `Date` and `Math` back in when necessary, or substiture safe implementations. For example
 
 ```js
 const DateNow = Date.now;
-const MathRandom = Math.random;
 
 Realm.lockdown();
 
-const unsafeDate = { ...Date, { now: DateNow } };
-const unsafeMath = { ...Math, { now: MathRandom } };
+function unsafeDate() { 
+  return Date(...arguments); 
+}
+Object.defineProperties(unsafeDate, Object.getOwnPropertyDescriptors(Date));
+Object.defineProperty(unsafeDate, 'now', { 
+	value: DateNow, 
+	writable: true,
+	enumerable: false,
+	configurable: true
+});
 
-const cmp = new Compartment({ Date: unsafeDate, Math: unsafeMath });
+const cmp = new Compartment({ Date: unsafeDate });
 ```
 
 ## Taming the function constructors.
