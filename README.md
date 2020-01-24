@@ -30,11 +30,13 @@ The original efforts to rebuild frozen realms on top of these Realms is:
 ## Summary
 
 In ECMAScript, a _realm_ consists of a global object and an associated set of _primordial objects_ -- mutable objects like `Array.prototype` that must exist before any code runs. Objects within a realm implicitly share these primordials and can therefore easily disrupt
-each other by _primordial poisoning_ -- modifying these objects to behave badly. This disruption may happen accidentally or maliciously. Today, in the browser, realms can be created via _same origin iframes_, an in node via `vm` contexts. On creation, these realms are separate from each other because they share no mutable state. Becuase prototypes are mutable, each realm needs its own set, making this separation too expensive to be used at fine grain.
+each other by _primordial poisoning_ -- modifying these objects to behave badly. This disruption may happen accidentally or maliciously. Today, in the browser, realms can be created via _same origin iframes_,
+and in Node via `vm` contexts. On creation, these realms are separate from each other because they share no mutable state. Becuase prototypes are mutable, each realm needs its own set, making this separation too expensive to be used at fine grain.
 
 Realms are currently not exposed directly to JavaScript but are represented in the specs by the _realm record_, of which the most important slots are the _intrinsics_, the _global object_, and the _global lexical environment_ (see [ECMA262 sections 8.2 Realms](https://tc39.es/ecma262/#sec-code-realms)).
 
-We propose to add the concept of _compartments_, to designate _lightweight child realms_ inside a realm. Each compartment has its own global object and global lexical scope, but all compartments inside a given realm share their intrinsics. Separation is achieved by making the intrinsics immutable, preventing an object in one compartment to poison the prototypes used by the other compartments. 
+We propose to add the concept of _compartments_, to designate _lightweight child realms_ inside a realm. Each compartment has its own global object and global lexical scope, but all compartments inside a given realm share their intrinsics. Separation is achieved by making the intrinsics immutable, preventing an object in one compartment
+from poisoning the prototypes used by the other compartments.
 
 This means that each compartment consists of a new _global object_, and a new _global lexical environment_:
 
@@ -50,53 +52,67 @@ The _compartment record_ is like a _realm record_, except that its _intrinsics_ 
 
 We propose a `Compartment` class, whose instances is a reification of the concept of "compartment" introduced above, for making multiple _lightweight child realms_ inside a given realm.
 
-Though initially separate, compartments can be brought into intimate contact
-with each other via global object and modules.
+Though initially separate, compartments can be brought into intimate contact with each other via global object and modules.
 
 ```js
 class Compartment {
   constructor: (
-      globals : object?,                // extra globals added to the global object
+      globals: object?,                 // extra globals added to the global object
       modules: object?,                 // module map, specifier to specifier
+      options: object?                  // including hooks like isDirectEvalHook
     ) -> object
 
   get global -> object                  // access this compartment's global object
 
-  evaluate(x: stringable) -> any        // do an indirect eval in this compartment
+  evaluate(                             // do an indirect eval in this compartment
+    src: stringable,
+    options: object?                    // per-evaluation rather than per-compartment
+  ) -> any
 
   async import(specifier: string) -> promise  // same signature as dynamic import
 }
 ```
 
-The compartment constructor creates a new lightweight child realm with a new
-`global`, a new `eval` function, a new `Function` constructor, and a new `import` function.
+The compartment constructor creates a new lightweight child realm with a new `global`, a new `eval` function, a new `Function` constructor, and a new `Compartment` constructor.
 
 - The compartment global object consists of all the primordial state defined by
-ECAM262, but contains no host provided objects, so `window`, `document`, `XMLHttpRequest`, etc. are all absent. Thus, a compartment contains none of the objects needed for interacting with the outside world, like the user or the network.
+ECMA262, but contains no host provided objects, so `window`, `document`, `XMLHttpRequest`,
+`require`, `process` etc. are all absent. Thus, a compartment contains none of the objects needed for interacting with the outside world, like the user or the network.
 
-- The new `eval`, `Function`, and `import` will evaluate code in the global scope of the new compartment: the new compartment's `global` becomes their global object.
+- The new `eval`, `Function`, and `Compartment` will evaluate code in the global scope of the new compartment: the new compartment's `global` becomes their global object.
 
-The constructor then copies the own enumerable properties from the `globals` parameter onto the new `global` and returns the new compartment instance. With these endowments, users provide any host objects that they wish to be available in the spawned realm.
+- The new `eval`, `Function`, and `Compartment` inherit from the shared %FunctionPrototype%.
+
+- The new `Function.prototype` is the shared %FunctionPrototype%.
+
+- The new `Compartment` constructor...?
+
+- The new `Compartment.prototype` is the shared %CompartmentPrototype%.
+
+The constructor then copies the values of the own enumerable properties from the `globals` parameter onto the new `global` and returns the new compartment instance. With these additional globals, users provide the
+*virtual host objects* that they wish to be available in the spawned compartment.
 
 The Compartment constructor is only available on the global object after lockdown has been invoked (see below).
 
 ### The Compartment prototype
 
-We propose on instances of the Compartment class:
+We propose on the shared `Compartment.prototype`, to be inherited by instances of the all Compartment classes:
 - a `global` getter to provide access to the compartment global object. Its behavior is similar to the `globalThis` global object.
-- an `evaluate` method to evaluate code in the global scope of the new compartment. Its signature is identical to the `eval()` function.
-- an asynchronous `import` method to dynamically load modules in the new compartment. Its signature is identical to the `import()` function.
+- an `evaluate` method to evaluate code in the global scope of the new compartment. Its signature is identical to the `eval()` function
+  but possibly with an additional optional options argument.
+- an asynchronous `import` method to dynamically load modules in the new compartment. Its signature is identical to the
+  dynamic import function.
 
 ### The `lockdown` method
 
-We propose a static method, `lockdown()` or `Realm.lockdown()`, for converting the current realm into a state with immutable primordials. We call such a realm an _immutable realm_. The `Realm` global object will be specified by the Realms proposal, and will expose an `intrinscs` static accessor to easily access all intrinsics.
+We propose a static method, `lockdown()` or `Realm.lockdown()`, for converting the current realm into a state with immutable primordials. We call such a realm an _immutable realm_. The `Realm` global object will be specified by the Realms proposal.
 
 The lockdown operation consists of:
 - taming some globals (see below).
 - taming the function constructors (see below).
 - freezing all intrinsics (see below).
-- disabling the default mechanism causing the _override mistake_ (see below). 
-- exposing the Compartment constructor via the global object which is not available before lockdown (see below).
+- disabling the default mechanism causing the _override mistake_ (see below).
+- exposing the `Compartment` constructor via the global object which is not available before lockdown (see below).
 
 Although `Compartment` and `Realm.lockdown()` appear orthogonal, they are only interesting when directly composed:
 
@@ -106,9 +122,18 @@ const cmpA = new Compartment();
 const cmpB = new Compartment();
 ```
 
-After lockdown, all the primordials that `cmpA` and `cmpB` share are immutable, so neither can poison the prototypes of the other. Because they share no mutable state, they are as fully separate from each other as two full realms created by two same origin iframes. 
+After lockdown, all the primordials that `cmpA` and `cmpB` share are immutable, so neither can poison the prototypes of the other. Because they share no mutable state, they are as fully separate from each other as two full realms created by two same origin iframes
+(except the shared identity of frozen primordials, thus avoiding identity discontinuity explained below).
 
-Modification of the prototypes is allowed before lockdown is called.
+Modification of the prototypes is allowed before lockdown is called
+(which raises interesting issues re what is frozen by lockdown).
+
+(edit with next two paragraphs)
+
+A long recognized best practice is "don't monkey-patch primordials" -- don't mutate any primordial state. Most legacy code obeying this practice is already compatible with lightweight realms descending from an immutable root realm. Some further qualifications are explained in the rest of this document.
+
+If customization of the intrinsics is required, it can be done before lockdown is called and before any compartment is created.
+
 
 ## The Compartment global object
 
@@ -118,40 +143,53 @@ The compartment constructor is unavailable before `lockdown()` is called, to avo
 
 In order for the intrinsics to be shared safely, they must be transitively immutable. Fortunately, of the standard primordials in ES2016, the only mutable primordial state is:
   * Mutable own properties of primordial objects
-  * The mutable internal [[Prototype]] slot of primordial objects, and the ability to add new own properties
+  * The mutable internal [[Prototype]] slot of primordial objects
   * The ability to add properties
   * `Math.random`
   * `Date.now`
   * The `Date` constructor called as a constructor with no arguments
   * The `Date` constructor called as a function, no matter what arguments
-  * `RegExp` static methods.
+    (Surprised me!)
+  * Normative optional proposed `RegExp` static methods (link)
+  * Normative optional proposed `Error.prototype.stack` accessor (link)
 
 To make a transitively immutable root realm, we, respectively
-  * Make all these properties non-configurable, non-writable. If an
-    accessor property, we specify that its getter must always return
-    the same value and its setter either be absent or throw an error
-    without mutating any state.
-  * Make all primordial objects non-extensible.
+  * Remove all non-standard properties
   * Remove `Math.random`
   * Remove `Date.now`
   * Have `new Date()` throw a `TypeError`
   * Have `Date(any...)` throw a `TypeError`
-  * Remove the `RegExp` static methods.
+  * Remove the `RegExp` static methods if present
+  * Remove `RegExp.prototype.compile`
+  * Remove `Error.prototype.stack` if present
+  * Make all primordial objects non-extensible.
+  * Make all remaining properties non-configurable, non-writable. If an
+    accessor property, we specify that its getter must always return
+    the same value
+    without mutating any state, and its setter either be absent or throw an error
+    without mutating any state.
 
-Likewise, any new addition to the specifications need to follow the same policy, in order to avoid introducing mutable state in a compartment.   
+Likewise, any new addition to the specifications need to follow the same policy, in order to avoid introducing mutable state in a compartment.
 
-A user can effectively add the missing functionality of `Date` and `Math` back in when necessary, or substiture safe implementations.
+A user can effectively add the missing functionality of `Date` and `Math` back in when necessary, or substiture safe implementations. For example
 
 ```js
 const DateNow = Date.now;
-const MathRandom = Math.random; 
 
 Realm.lockdown();
 
-const unsafeDate = Object.assign({}, Date, { now: DateNow });
-const unsafeMath = Object.assign({}, Math, { now: MathRandom });
+function unsafeDate() { 
+  return Date(...arguments); 
+}
+Object.defineProperties(unsafeDate, Object.getOwnPropertyDescriptors(Date));
+Object.defineProperty(unsafeDate, 'now', { 
+	value: DateNow, 
+	writable: true,
+	enumerable: false,
+	configurable: true
+});
 
-const cmp = new Compartment({ Date: unsafeDate, Math: unsafeMath });
+const cmp = new Compartment({ Date: unsafeDate });
 ```
 
 ## Taming the function constructors.
@@ -159,6 +197,9 @@ const cmp = new Compartment({ Date: unsafeDate, Math: unsafeMath });
 All intrinscis are shared, but the %Function%, %GeneratorFunction%, %AsyncFunction% and %AsyncGeneratorFunction% perform by default source code evaluation in the global scope of the realm.
 
 After lockdown, these constructor should be replaced with functions that throw instead of evaluating source code, so they can be safely shared.
+We could specify that their throwing behavior is the same as when the host hook (for CSP) suppresses evaluation, mapping it to an already possible behavior.
+If `Compartment` is a per-realm global rather than per-Compartment, then
+`Compartment.prototype.constructor === Compartment`, which is not tamed? Let's talk about this.
 
 ## Override mistake
 
@@ -174,7 +215,9 @@ arr.join = true; // throws in strict mode, ignore in sloppy mode.
 
 For that reason, after freezing the primordials, we need to [Make non-writable prototype properties not prevent assigning to instance](https://github.com/tc39/ecma262/pull/1320).
 
-See the [override mistake](http://wiki.ecmascript.org/doku.php?id=strawman:fixing_override_mistake).
+See the [override mistake](https://web.archive.org/web/20141230041441/http://wiki.ecmascript.org/doku.php?id=strawman:fixing_override_mistake). (better link?)
+
+(We need another bit of semantic state to distinguish these two ways of being frozen. We should specify that `petrify` and perhaps even `harden` also protect against override mistake, even though we avoid fully shimming that.)
 
 ## Identity discontinuity
 
@@ -182,9 +225,6 @@ Two realms, made by same origin iframes or vm contexts, can be put in contact. O
 
 By contrast, since `cmpA` and `cmpB` share the same `Array.prototype`, an array `arr` created by one still passes the `arr instanceof Array` as tested by the other.
 
-A long recognized best practice is "don't monkey-patch primordials" -- don't mutate any primordial state. Most legacy code obeying this practice is already compatible with lightweight realms descending from an immutable root realm. Some further qualifications are explained in the rest of this document.
-
-If customization of the intrinsics is required, it can be done before lockdown is called and before any compartment is created. 
 
 ###################################
 # TODO BELOW
