@@ -31,7 +31,7 @@ The ***SourceTextStaticModuleRecord*** is a CyclicStaticModuleRecord. It additio
 
 ### ModuleContext
 
-A ***ModuleContext*** has the original ModuleRecord slots
+A ***ModuleContext*** has the following original ModuleRecord slots
   * [[Compartment]] : Compartment exotic object. This is just a renaming of the [[Realm]] slot from the original ModuleRecord. Below, the internal RealmRecord type is refactored into the reified Compartment exotic object.
   * [[Environment]] : LexicalEnvironment, which is unchanged
   * [[Namespace]] : a ModuleNamespace exotic object, which is unchanged
