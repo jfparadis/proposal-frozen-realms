@@ -38,6 +38,7 @@ and the following [original ModuleRecord](https://tc39.es/ecma262/#sec-abstract-
   * [[EvalRecord]] : EvalRecord. This is just a renaming of the [[Realm]] slot from the original ModuleRecord. Below, the original RealmRecord is refactored into the EvalRecord.
   * [[Environment]] : LexicalEnvironment, which is unchanged
   * [[Namespace]] : a ModuleNamespace exotic object, which is unchanged
+  * [[Meta]] : Object | undefined. Unchanged from the [import.meta](https://tc39.es/proposal-import-meta/) proposal
   * [[HostDefined]] : Any, which is unchanged
 
 It has no slots from the original CyclicModuleRecord
@@ -47,7 +48,7 @@ It has the original SourceTextModuleRecord slot
 
 ### ModuleInitialization
 
-We separate into a separate ***ModuleInitialization*** object the bookkeeping needed to guide module instantiation, linking, initialization, etc. Thus, once the initialization process completes, this bookkeeping state is no longer present. This helps us reason about post-initialization state separately.
+We separate into a distinct ***ModuleInitialization*** object the bookkeeping needed to guide module instantiation, linking, initialization, etc. Thus, once the initialization process completes, this bookkeeping state is no longer present. This helps us reason about post-initialization state separately.
 
 A ***ModuleInitialization*** has the slots
   * [[ModuleInstance]] : the ModuleInstance being initialized
@@ -73,4 +74,3 @@ It has the following hook functions, which are typically provided by the host
 
   * [[ResolveImportedModule]] : (referrer, specifier) -> resolution, from the [original HostResolveImportedModule](https://tc39.es/ecma262/#sec-hostresolveimportedmodule). This is like the `importer` function from [make-importer](https://github.com/Agoric/make-importer), but synchronous?
   * [[ImportModuleDynamically]] : (referrer, specified) -> Promise, from the [original HostImportModuleDynamically](https://tc39.es/ecma262/#sec-hostimportmoduledynamically). This is like the `importer` function from [make-importer](https://github.com/Agoric/make-importer).
-
