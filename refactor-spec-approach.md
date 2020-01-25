@@ -58,7 +58,7 @@ A ***ModuleInitialization*** has the slots
 
 ## Refactoring the original RealmRecord
 
-The [original internal RealmRecord type](https://tc39.es/ecma262/#sec-code-realms) is now the reified Compartment exotic object, an instance of the new `Compartment` abstraction. However, this section by itself does not require that compartment constructors, prototypes, instances, or methods actually be exposed. If they're not, then we still have made no observable changes to EcmaScript. If this is too radical, we can instead make compartment instances be an internal spec object; make the constructor and methods below into internal functions, and then later define the refied `Compartment` abstractions below in terms of these internal objects and functions.
+The [original internal RealmRecord type](https://tc39.es/ecma262/#sec-code-realms) is now the reified Compartment exotic object, an instance of the new `Compartment` abstraction. However, this section by itself does not require that compartment constructors, prototypes, instances, or methods actually be exposed. Until they are, we still have made no observable changes to EcmaScript. If this is too radical, we can instead make compartment instances be an internal spec object; make the constructor and methods below into internal functions, and then later define the refied `Compartment` abstractions below in terms of these internal objects and functions.
 
 ### The Compartment Constructor
 
