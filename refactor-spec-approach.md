@@ -22,7 +22,7 @@ The ***CyclicStaticModuleRecord*** is a StaticModuleRecord with the slot
 
 and no methods.
 
-The ***SourceTextModuleStaticModuleRecord*** is a CyclicStaticModuleRecord. It additionally holds the static information from the [original SourceTextModuleRecord](https://tc39.es/ecma262/#sourctextmodule-record). It has the slots
+The ***SourceTextStaticModuleRecord*** is a CyclicStaticModuleRecord. It additionally holds the static information from the [original SourceTextModuleRecord](https://tc39.es/ecma262/#sourctextmodule-record). It has the slots
   * [[ECMAScriptCode]] : a ParseNode
   * [[ImportEntries]] : List of ImportEntry records
   * [[LocalExportEntries]] : List of ExportEntry records
