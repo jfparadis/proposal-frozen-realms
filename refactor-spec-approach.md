@@ -8,7 +8,7 @@ The purpose of the changes explained here are to prepare the ground for this SES
 
 The [original ModuleRecord abstractions](https://tc39.es/ecma262/#sec-abstract-module-records) mix three concerns
   * The static information that corresponds to the separately linkable units of compilation. In the SourceTextModuleRecord example, this would be the information that could be derived from the source text of one module by itself, with no inter-module analysis. We separate these into ***StaticModuleRecord*** abstractions.
-  * The additional ***ModuleContext*** state needed, in addition to a ModuleStaticRecord, to have a fully linked and initialized stateful ***ModuleInstance***.
+  * A ***ModuleInstance*** has a ModuleStaticRecord and the additional state needed to have a fully linked and initialized stateful module instance. This corresponds most directly to the original ModuleRecord but is renamed to avoid confusion.
   * The ***ModuleInitialization*** bookkeeping needed during the instantiation and initialization of module instances, to take care of cycles, errors, phasing of initialization, etc.
 
 We focus on refactoring the state of these abstractions. From the refactoring of the state, the relocation of the methods should often be obvious and may not be explicitly stated.
@@ -29,10 +29,13 @@ The ***SourceTextStaticModuleRecord*** is a CyclicStaticModuleRecord. It additio
   * [[IndirectExportEntries]] : List of ExportEntry records
   * [[StarExportEntries]] : List of ExportEntry records
 
-### ModuleContext
+### ModuleInstance
 
-A ***ModuleContext*** has the following original ModuleRecord slots
-  * [[Compartment]] : Compartment exotic object. This is just a renaming of the [[Realm]] slot from the original ModuleRecord. Below, the internal RealmRecord type is refactored into the reified Compartment exotic object.
+A ***ModuleInstance*** has the slot
+  * [[StaticModuleRecord]] : a StaticModuleRecord as specified above
+
+and the following [original ModuleRecord](https://tc39.es/ecma262/#sec-abstract-module-records) slots
+  * [[EvalRecord]] : EvalRecord. This is just a renaming of the [[Realm]] slot from the original ModuleRecord. Below, the original RealmRecord is refactored into the EvalRecord.
   * [[Environment]] : LexicalEnvironment, which is unchanged
   * [[Namespace]] : a ModuleNamespace exotic object, which is unchanged
   * [[HostDefined]] : Any, which is unchanged
@@ -42,43 +45,32 @@ It has no slots from the original CyclicModuleRecord
 It has the original SourceTextModuleRecord slot
   * [[Context]] : an ECMAScript [execution context](https://tc39.es/ecma262/#sec-execution-contexts).
 
-### ModuleInstance
-
-A ***ModuleInstance*** has the slots
-  * [[StaticModuleRecord]] : a StaticModuleRecord as specified above
-  * [[ModuleContext]] : a ModuleContext as specified above
-
 ### ModuleInitialization
 
 We separate into a separate ***ModuleInitialization*** object the bookkeeping needed to guide module instantiation, linking, initialization, etc. Thus, once the initialization process completes, this bookkeeping state is no longer present. This helps us reason about post-initialization state separately.
 
 A ***ModuleInitialization*** has the slots
   * [[ModuleInstance]] : the ModuleInstance being initialized
-  * all the fields from the [original CyclicModuleRecord](https://tc39.es/ecma262/#sec-cyclic-module-records).
 
-## Refactoring the original RealmRecord
+It has the following [original CyclicModuleRecord](https://tc39.es/ecma262/#sec-cyclic-module-records) slots.
+  * [[Status]] unchanged
+  * [[EvaluationError]] unchanged
+  * [[DFSIndex]] unchanged
+  * [[DFSAncestorIndex]] unchanged
 
-The [original internal RealmRecord type](https://tc39.es/ecma262/#sec-code-realms) is now the reified Compartment exotic object, an instance of the new `Compartment` abstraction. However, this section by itself does not require that compartment constructors, prototypes, instances, or methods actually be exposed. Until they are, we still have made no observable changes to EcmaScript. If this is too radical, we can instead make compartment instances be an internal spec object; make the constructor and methods below into internal functions, and then later define the refied `Compartment` abstractions below in terms of these internal objects and functions.
+## Refactoring the original RealmRecord into the EvalRecord
 
-### The Compartment Constructor
+Currently, this is mostly a renaming. EvalRecords will be 1-to-1 with Compartments, and so there will be multiple EvalRecords per realm. EvalRecord isn't a great name, but it'll do.
 
-  * `new Compartment(endowments?, importer?, options?)`
-
-### Properties of the Compartment constructor
-
-None
-
-### Properties of the Compartment Prototype Object
-
-  * `get global`
-  * `evaluate(src: stringable, options?)`
-  * `import(specifier)`
-
-### Properties of Compartment Instances
-
-Compartment instances have the [original RealmRecord](https://tc39.es/ecma262/#sec-code-realms) slots
-  * [[Intrinsics]] : a Record of all the intrinsics shared by all compartments in this Realm.
-  * [[GlobalObject]] : Object, the global object for this compartment.
-  * [[GlobalEnv]] : a LexicalEnvironment, for code executing in this compartment.
-  * [[TemplateMap]] : unchanged
+An ***EvalRecord*** has the following [original RealmRecord](https://tc39.es/ecma262/#sec-code-realms) slots
+  * [[Intrinsics]] : a Record of all the intrinsics shared by all compartments in this Realm. Unchanged.
+  * [[GlobalObject]] : Object, the global object for this compartment. Unchanged
+  * [[GlobalEnv]] : a LexicalEnvironment, for code executing in this compartment. Unchanged.
+  * [[TemplateMap]] : A List of {[[Site]], [[Array]]} records. Unchanged.
   * [[HostDefined]] : Any, unchanged.
+
+It has the following hook functions, which are typically provided by the host
+
+  * [[ResolveImportedModule]] : (referrer, specifier) -> resolution, from the [original HostResolveImportedModule](https://tc39.es/ecma262/#sec-hostresolveimportedmodule). This is like the `importer` function from [make-importer](https://github.com/Agoric/make-importer), but synchronous?
+  * [[ImportModuleDynamically]] : (referrer, specified) -> Promise, from the [original HostImportModuleDynamically](https://tc39.es/ecma262/#sec-hostimportmoduledynamically). This is like the `importer` function from [make-importer](https://github.com/Agoric/make-importer).
+
