@@ -41,10 +41,7 @@ and the following [original ModuleRecord](https://tc39.es/ecma262/#sec-abstract-
   * [[Meta]] : Object | undefined. Unchanged from the [import.meta](https://tc39.es/proposal-import-meta/) proposal
   * [[HostDefined]] : Any, which is unchanged
 
-It has no slots from the original CyclicModuleRecord
-
-It has the original SourceTextModuleRecord slot
-  * [[Context]] : an ECMAScript [execution context](https://tc39.es/ecma262/#sec-execution-contexts).
+It has no slots from the original CyclicModuleRecord or SourceTextModuleRecord
 
 ### ModuleInitialization
 
@@ -58,6 +55,9 @@ It has the following [original CyclicModuleRecord](https://tc39.es/ecma262/#sec-
   * [[EvaluationError]] unchanged
   * [[DFSIndex]] unchanged
   * [[DFSAncestorIndex]] unchanged
+
+It has the original SourceTextModuleRecord slot
+  * [[Context]] : an ECMAScript [execution context](https://tc39.es/ecma262/#sec-execution-contexts), which is only used during module initialization. Unchanged.
 
 ## Refactoring the original RealmRecord into the EvalRecord
 
