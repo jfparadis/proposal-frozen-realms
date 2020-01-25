@@ -84,3 +84,44 @@ It has the following hook functions, which were originally provided only by the 
   * [[ResolveImportedModule]] : `(referrer, specifier) -> ModuleInstance`, from the [original HostResolveImportedModule](https://tc39.es/ecma262/#sec-hostresolveimportedmodule). This is like the `importer` function from [make-importer](https://github.com/Agoric/make-importer), but synchronous?
   * [[ImportModuleDynamically]] : `(referrer, specified) -> Promise<ModuleInstance>`, from the [original HostImportModuleDynamically](https://tc39.es/ecma262/#sec-hostimportmoduledynamically). But rather than take a spec-internal "PromiseCapability" as argument, it returns a promise. This is like the `importer` function from [make-importer](https://github.com/Agoric/make-importer).
   * [[ResolveImportMeta]] : `(referrer) -> Object | undefined`. This replaces the ModuleInstance.Meta property from the original [import.meta](https://tc39.es/proposal-import-meta/) proposal
+
+---
+
+# Random notes
+
+Other host hooks to be aware of
+  * The [original InitializeHostDefinedRealm](https://tc39.es/ecma262/#sec-initializehostdefinedrealm) has to be broken up to separate creating a per-Realm set of intrinsics vs per-EvalRecord state.
+  * The [original HostReportErrors](https://tc39.es/ecma262/#sec-host-report-errors), probably needs to be hookable at the [Agent](https://tc39.es/ecma262/#sec-agents) level, rather than EvalRecord or Realm levels.
+  * The [original HostEnsureCanCompileStrings](https://tc39.es/ecma262/#sec-hostensurecancompilestrings), should turn into an EvalRecord hook.
+  * The [original HostHasSourceTextAvailable](https://tc39.es/ecma262/#sec-hosthassourcetextavailable). Unclear how to handle.
+  * [RunJobs](https://tc39.es/ecma262/#sec-runjobs) and [Job scheduling decisions](https://tc39.es/ecma262/#sec-jobs-and-job-queues), should turn into Agent-level hooks.
+  * [HostPromiseRejectionTracker](https://tc39.es/ecma262/#sec-host-promise-rejection-tracker) agent-level hook.
+  * [debugger](https://tc39.es/ecma262/#sec-debugger-statement-runtime-semantics-evaluation) has an implementation-defined completion value. Cool!
+  * [Directive Prologues](https://tc39.es/ecma262/#sec-directive-prologues-and-the-use-strict-directive) should probably only have a static meaning, but it is intriguing. The recommended warning behavior could become a parse-time hook.
+  * [DetachArrayBuffer](https://tc39.es/ecma262/#sec-detacharraybuffer) can be called only by hosts.
+
+
+From [Proxy internals](https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots):
+  An ECMAScript implementation must be robust in the presence of all possible invariant violations.
+
+The [Global Object](https://tc39.es/ecma262/#sec-global-object) has an implementation dependent [[Prototype]]. WTF?
+
+[URI handling](https://tc39.es/ecma262/#sec-uri-handling-functions) says "Many implementations of ECMAScript provide additional functions and methods that manipulate web pages". What?
+
+[toLocale](https://tc39.es/ecma262/#sec-number.prototype.tolocalestring) is, of course, implementation dependent. Must be hooked at the realm-level. Also the other toLocaleString methods.
+
+[BigInt.prototype.toString](https://tc39.es/ecma262/#sec-bigint.prototype.tostring) is implementation-dependent? WTF?
+
+[Math](https://tc39.es/ecma262/#sec-function-properties-of-the-math-object) is implementation-dependent, but recommends [fdlibm](http://www.netlib.org/fdlibm).
+
+[Date LocalTZA](https://tc39.es/ecma262/#sec-local-time-zone-adjustment) is implementation dependent, of course.
+
+[timeZoneString](https://tc39.es/ecma262/#sec-timezoneestring) says "an implementation-dependent timezone name". Oh, come on!
+
+[Date.parse](https://tc39.es/ecma262/#sec-date.parse) for non-conforming strings.
+
+[Array.prototype.sort](https://tc39.es/ecma262/#sec-array.prototype.sort) and [TypedArray.prototype.sort](https://tc39.es/ecma262/#sec-%typedarray%.prototype.sort) algorithms.
+
+[Pattern](https://tc39.es/ecma262/#sec-pattern) says "except for any host-defined exceptions that can occur anywhere such as out-of-memory".
+
+[document.all](https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot) bleh
