@@ -1,6 +1,6 @@
 # Towards a better factoring of Ecma262
 
-All references to Ecma262 or The EcmaScript Specification, unless stated otherwise, is to [EcmaScript 2020](https://tc39.es/ecma262). This document outlines changes to its organization that should make no observable difference. As such, these would not be semantic changes, and so not need to go through the proposal approval process. However, they are substantial, and would result in a serious needs-consensus PR (pull request).
+All references to Ecma262 or The EcmaScript Specification, unless stated otherwise, are to [EcmaScript 2020](https://tc39.es/ecma262). This document outlines changes to its organization that should make no observable difference. As such, these would not be semantic changes, and so not need to go through the proposal approval process. However, they are substantial, and would result in a serious needs-consensus PR (pull request).
 
 The purpose of the changes explained here are to prepare the ground for this SES proposal so that it can state its semantic changes more understandably.
 
