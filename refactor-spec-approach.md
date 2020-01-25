@@ -9,7 +9,7 @@ All references to Ecma262 or The EcmaScript Specification, unless stated otherwi
 
 The [original ModuleRecord abstractions](https://tc39.es/ecma262/#sec-abstract-module-records) mix three concerns
   * The static information that corresponds to the separately linkable units of compilation. In the SourceTextModuleRecord example, this would be the information that could be derived from the source text of one module by itself, with no inter-module analysis. We separate these into ***StaticModuleRecord*** abstractions.
-  * A ***ModuleInstance*** has a ModuleStaticRecord and the additional state needed to have a fully linked and initialized stateful module instance. This corresponds most directly to the original ModuleRecord but is renamed to avoid confusion.
+  * A ***ModuleInstance*** has a StaticModuleRecord and the additional state needed to have a fully linked and initialized stateful module instance. This corresponds most directly to the original ModuleRecord but is renamed to avoid confusion.
   * The ***ModuleInitialization*** bookkeeping needed during the instantiation and initialization of module instances, to take care of cycles, errors, phasing of initialization, etc.
 
 We focus on refactoring the state of these abstractions. From the refactoring of the state, the relocation of the methods should often be obvious and may not be explicitly stated.
